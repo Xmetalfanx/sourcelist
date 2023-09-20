@@ -1,40 +1,45 @@
+# old variables left here for now
 debian_branch="stable"
 debian_codename="bookworm"
 
-function oldTests() {
-    #sed '/deb.debian.org/s/$/ contrib non-free/' source.list
 
-    #targetLine=$(sed -ne "deb\s;/${debian_codename}\s/p" source.list)
-    #targetLine=$(grep -e "^deb " source.list)
+# Goal (summary) find lines in source.list that start with "deb" and add "contrib" and "non-free" to the end of the line
+function simpleSed() {
+    # i know -i is missing ... i am leaving that out while testing
 
-    return 
+    # themachine way - grouping
+    # sed 's/\(^deb.*\)/\1 contrib non-free/' source.list
+
+    # my old way
+    # remember/note to self ... -i is not there for now
+    #sed "/^deb/ s/$/$ contrib non-free/g" source.list
+    ################################################################
+
+    # only issue is the extra repos keep getting added ... i need to add a check for that
+
+    # works
+    #sed -i "s/[[:space:]]*$//g;/^deb/ s/$/ contrib non-free/g" source.list
+
+
+    # clear possible spaces at end
+    echo -e "clearing possible spaces"
+    sed -i 's/[[:blank:]]*$//g' source.list
+    sleep 2
+
+    echo -e "Adding to source file IF needed"
+    # issue here: it will keep added the extra repos: i need to check "if they already are in the line", first
+    #sed -e "/^deb/ s/$/ contrib non-free/g" source.list
+
+    # 1 - if it starts with deb 
+    # 2 - if "contrib non-free" doesn't exist in the line already, add it at the end 
+    awk '/^deb/ && $0 !~ "contrib non-free" {print $0 " contrib non-free"}' source.list > source.list.tmp
+
+    #wait ... file may exist but is blank ... same issue as before
+    [ -s source.list.tmp ] && mv source.list.tmp source.list
+
+    # cleanup temp file if it still exists
+    [ -f source.list.tmp ] && rm source.list.tmp
+
 }
 
-function addSources() {
-    sed -i "s|$targetLine|$targetLine $additionalRepos|g" source.list
-}
-
-function checkTargetLine() {
-    additionalRepos="contrib non-free"
-
-    # 1 - if the line starts with "deb "- the space here prevents deb-src from being in the results
-    # 2 - if the codename or branch (some users may say use "stable" others may use "bookworm" in the source.list file )
-    # 3 - the line at this point DOESN'T contain additionalRepos
-    targetLine=$(awk -v branch="$debian_branch " -v codename="$debian_codename " -v repos="$additionalRepos" '
-    { 
-        if (/^deb /) 
-            if ($0 ~ codename || $0 ~ branch)
-                if ($0 !~ repos)
-                    print;
-                else if ($0 ~ repos)
-                    print "Additional Repos already added to source.list"                
-                 
-    } ' source.list )
-
-    echo -e "$targetLine"
-    addSources
-}
-
-clear 
-
-checkTargetLine
+clear && simpleSed
